@@ -21,7 +21,7 @@ static ams::os::ThreadType g_init_thread;
 static std::atomic_bool g_has_initialized = false;
 
 extern "C" void __libnx_init_time(void);
-static void _FileUtils_InitializeThreadFunc(void* args) {
+static void _FileUtils_InitializeThreadFunc(void*) {
 	R_ABORT_UNLESS(FileUtils::Initialize());
 }
 
@@ -31,7 +31,7 @@ bool FileUtils::IsInitialized() {
 
 bool FileUtils::WaitInitialized() {
 	if(!g_has_initialized) {
-		if(g_init_thread.state == ams::os::ThreadType::State_NotInitialized) {
+		if (g_init_thread.state == ams::os::ThreadType::State_NotInitialized) {
 			return false;
 		}
 		ams::os::WaitThread(&g_init_thread);
@@ -40,6 +40,7 @@ bool FileUtils::WaitInitialized() {
 }
 
 void FileUtils::LogLine(const char* format, ...) {
+    (void)format;
 #ifdef ENABLE_LOGGING
 	va_list args;
 	va_start(args, format);
@@ -51,7 +52,6 @@ void FileUtils::LogLine(const char* format, ...) {
 			time_t timer  = time(NULL);
 			struct tm* timerTm = localtime(&timer);
 
-			va_start(args, format);
 			fprintf(file, "[%04d-%02d-%02d %02d:%02d:%02d] ", timerTm->tm_year+1900, timerTm->tm_mon+1, timerTm->tm_mday, timerTm->tm_hour, timerTm->tm_min, timerTm->tm_sec);
 			vfprintf(file, format, args);
 			fprintf(file, "\n");
@@ -89,8 +89,10 @@ ams::Result FileUtils::Initialize() {
 }
 
 void FileUtils::Exit() {
-	ams::os::WaitThread(&g_init_thread);
-	ams::os::DestroyThread(&g_init_thread);
+	if (g_init_thread.state != ams::os::ThreadType::State_NotInitialized) {
+		ams::os::WaitThread(&g_init_thread);
+		ams::os::DestroyThread(&g_init_thread);
+	}
 
 	if (!g_has_initialized) {
 		return;
